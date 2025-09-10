@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Personoversikt Arbeidsplass</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>POB COSL Pospector</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -46,51 +46,54 @@
   </style>
 </head>
 <body>
-  <h1>POB COSL Prospector</h1>
+  <div id="appDiv">
+    <h1>POB COSL Prospector</h1>
   
-  <div class="form">
-    <input type="text" id="fornavn" placeholder="Fornavn">
-    <input type="text" id="etternavn" placeholder="Etternavn">
-    <input type="text" id="firma" placeholder="Firma">
-    <button class="add" onclick="leggTilPerson()">Legg til person</button>
-    <button class="reset" onclick="resetOversikt()">Nullstill</button>
+    <div class="form">
+      <input type="text" id="fornavn" placeholder="Fornavn" />
+      <input type="text" id="etternavn" placeholder="Etternavn" />
+      <input type="text" id="firma" placeholder="Firma" />
+      <button class="add" onclick="leggTilPerson()">Legg til person</button>
+      <button class="reset" onclick="resetOversikt()">Nullstill</button>
+    </div>
+  
+    <h2>POB: <span id="count">0</span></h2>
+  
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sorterEtter('id')">ID</th>
+          <th onclick="sorterEtter('fornavn')">First Name</th>
+          <th onclick="sorterEtter('etternavn')">Last Name</th>
+          <th onclick="sorterEtter('firma')">Company</th>
+          <th>Status</th>
+          <th>Time Onboard</th>
+          <th>Tid Ashore</th>
+          <th>Handling</th>
+        </tr>
+      </thead>
+      <tbody id="personListe"></tbody>
+    </table>
+  
+    <div style="margin-top:20px;">
+      <input type="file" id="csvFileInput" accept=".csv" />
+      <button class="add" onclick="importerCSV()">Importer CSV</button>
+      <p>CSV-format: header må være <code>fornavn,etternavn,firma</code> etterfulgt av linjer med data.</p>
+    </div>
   </div>
-  
-  <h2>POB: <span id="count">0</span></h2>
-  
-  <table>
-    <thead>
-      <tr>
-        <th onclick="sorterEtter('id')">ID</th>
-        <th onclick="sorterEtter('fornavn')">First Name</th>
-        <th onclick="sorterEtter('etternavn')">Last Name</th>
-        <th onclick="sorterEtter('firma')">Company</th>
-        <th>Status</th>
-        <th>Time Onboard</th>
-        <th>Tid Ashore</th>
-        <th>Handling</th>
-      </tr>
-    </thead>
-    <tbody id="personListe"></tbody>
-  </table>
-  
-  <div style="margin-top:20px;">
-    <input type="file" id="csvFileInput" accept=".csv">
-    <button class="add" onclick="importerCSV()">Importer CSV</button>
-    <p>CSV-format: header må være <code>fornavn,etternavn,firma</code> etterfulgt av linjer med data.</p>
-  </div>
-  
+
   <script>
     let personer = [];
-
-    // Hent lagrede data fra localStorage
-    if (localStorage.getItem("personer")) {
-      personer = JSON.parse(localStorage.getItem("personer"));
-      oppdaterTabell();
-    }
+    let sortFelt = 'id';
+    let sortAsc = true;
 
     function lagre() {
-      localStorage.setItem("personer", JSON.stringify(personer));
+      localStorage.setItem('personer', JSON.stringify(personer));
+    }
+
+    function lastData() {
+      const data = localStorage.getItem('personer');
+      personer = data ? JSON.parse(data) : [];
     }
 
     function oppdaterTabell() {
@@ -114,7 +117,23 @@
         tbody.appendChild(row);
       });
       document.getElementById("count").textContent = personer.filter(p => p.status === "Onboard").length;
-      lagre();
+    }
+
+    function sorterOgOppdater() {
+      personer.sort((a, b) => {
+        let valA, valB;
+        if (sortFelt === "id") {
+          valA = a.id;
+          valB = b.id;
+        } else {
+          valA = a[sortFelt] ? a[sortFelt].toString().toLowerCase() : "";
+          valB = b[sortFelt] ? b[sortFelt].toString().toLowerCase() : "";
+        }
+        if (valA < valB) return sortAsc ? -1 : 1;
+        if (valA > valB) return sortAsc ? 1 : -1;
+        return 0;
+      });
+      oppdaterTabell();
     }
 
     function leggTilPerson() {
@@ -126,8 +145,10 @@
         return;
       }
       const nyId = personer.length > 0 ? Math.max(...personer.map(p => p.id)) + 1 : 1;
-      personer.push({ id: nyId, fornavn, etternavn, firma, status: "Ashore", tidInn: null, tidUt: null });
-      oppdaterTabell();
+      const nyPerson = { id: nyId, fornavn, etternavn, firma, status: "Ashore", tidInn: null, tidUt: null };
+      personer.push(nyPerson);
+      lagre();
+      sorterOgOppdater();
       document.getElementById("fornavn").value = "";
       document.getElementById("etternavn").value = "";
       document.getElementById("firma").value = "";
@@ -143,12 +164,14 @@
         person.status = "Ashore";
         person.tidUt = new Date().toLocaleString();
       }
+      lagre();
       oppdaterTabell();
     }
 
     function slettPerson(index) {
       if (confirm("Er du sikker på at du vil slette denne personen?")) {
         personer.splice(index, 1);
+        lagre();
         oppdaterTabell();
       }
     }
@@ -156,24 +179,19 @@
     function resetOversikt() {
       if (confirm("Er du sikker på at du vil nullstille hele oversikten?")) {
         personer = [];
-        localStorage.removeItem("personer");
+        lagre();
         oppdaterTabell();
       }
     }
 
     function sorterEtter(felt) {
-      personer.sort((a, b) => {
-        if (felt === "id") {
-          return a.id - b.id;
-        } else {
-          const valA = a[felt].toLowerCase();
-          const valB = b[felt].toLowerCase();
-          if (valA < valB) return -1;
-          if (valA > valB) return 1;
-          return 0;
-        }
-      });
-      oppdaterTabell();
+      if (sortFelt === felt) {
+        sortAsc = !sortAsc;
+      } else {
+        sortFelt = felt;
+        sortAsc = true;
+      }
+      sorterOgOppdater();
     }
 
     function importerCSV() {
@@ -200,11 +218,16 @@
           const nyId = personer.length > 0 ? Math.max(...personer.map(p => p.id)) + 1 : 1;
           personer.push({ id: nyId, fornavn, etternavn, firma, status: "Ashore", tidInn: null, tidUt: null });
         }
-        oppdaterTabell();
+        lagre();
+        sorterOgOppdater();
         fileInput.value = "";
       };
       reader.readAsText(file);
     }
+
+    // Initial load
+    lastData();
+    sorterOgOppdater();
   </script>
 </body>
 </html>
