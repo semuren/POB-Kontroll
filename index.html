@@ -72,6 +72,7 @@
 </head>
 <body>
 
+  <!--
   <div id="loginDiv">
     <h2>Logg inn</h2>
     <input type="email" id="email" placeholder="E-post" />
@@ -79,8 +80,9 @@
     <button onclick="loggInn()">Logg inn</button>
     <p id="loginError" style="color:red;"></p>
   </div>
+  -->
 
-  <div id="appDiv" style="display:none;">
+  <div id="appDiv" style="display:block;">
     <h1>POB COSL Prospector</h1>
   
     <div class="form">
@@ -89,7 +91,7 @@
       <input type="text" id="firma" placeholder="Firma" />
       <button class="add" onclick="leggTilPerson()">Legg til person</button>
       <button class="reset" onclick="resetOversikt()">Nullstill</button>
-      <button class="reset" onclick="loggUt()" style="background:#888;">Logg ut</button>
+      <!-- <button class="reset" onclick="loggUt()" style="background:#888;">Logg ut</button> -->
     </div>
   
     <h2>POB: <span id="count">0</span></h2>
@@ -138,6 +140,7 @@
     let sortFelt = 'id';
     let sortAsc = true;
 
+    /*
     const loginDiv = document.getElementById('loginDiv');
     const appDiv = document.getElementById('appDiv');
     const loginError = document.getElementById('loginError');
@@ -154,7 +157,9 @@
         oppdaterTabell();
       }
     });
+    */
 
+    /*
     function loggInn() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
@@ -172,20 +177,23 @@
     function loggUt() {
       auth.signOut();
     }
+    */
 
     function lagre() {
-      const user = auth.currentUser;
-      if (!user) return;
-      const uid = user.uid;
+      // const user = auth.currentUser;
+      // if (!user) return;
+      // const uid = user.uid;
       // Lagre hele listen under brukerens node
-      database.ref('users/' + uid + '/personer').set(personer);
+      // database.ref('users/' + uid + '/personer').set(personer);
+      database.ref('personer').set(personer);
     }
 
     function lastData() {
-      const user = auth.currentUser;
-      if (!user) return;
-      const uid = user.uid;
-      database.ref('users/' + uid + '/personer').once('value').then(snapshot => {
+      // const user = auth.currentUser;
+      // if (!user) return;
+      // const uid = user.uid;
+      // database.ref('users/' + uid + '/personer').once('value').then(snapshot => {
+      database.ref('personer').once('value').then(snapshot => {
         const data = snapshot.val();
         personer = data ? data : [];
         sorterOgOppdater();
@@ -194,6 +202,9 @@
         sorterOgOppdater();
       });
     }
+
+    // Load data immediately on page load
+    lastData();
 
     function oppdaterTabell() {
       const tbody = document.getElementById("personListe");
