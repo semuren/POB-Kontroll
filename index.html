@@ -43,10 +43,44 @@
       cursor: pointer;
     }
     th { background: #eee; }
+    #loginDiv {
+      max-width: 300px;
+      margin: 50px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    #loginDiv input {
+      width: 90%;
+      margin: 8px 0;
+      padding: 8px;
+      font-size: 1rem;
+    }
+    #loginDiv button {
+      width: 95%;
+      margin-top: 12px;
+    }
   </style>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 </head>
 <body>
-  <div id="appDiv">
+
+  <div id="loginDiv">
+    <h2>Logg inn</h2>
+    <input type="email" id="email" placeholder="E-post" />
+    <input type="password" id="password" placeholder="Passord" />
+    <button onclick="loggInn()">Logg inn</button>
+    <p id="loginError" style="color:red;"></p>
+  </div>
+
+  <div id="appDiv" style="display:none;">
     <h1>POB COSL Prospector</h1>
   
     <div class="form">
@@ -55,6 +89,7 @@
       <input type="text" id="firma" placeholder="Firma" />
       <button class="add" onclick="leggTilPerson()">Legg til person</button>
       <button class="reset" onclick="resetOversikt()">Nullstill</button>
+      <button class="reset" onclick="loggUt()" style="background:#888;">Logg ut</button>
     </div>
   
     <h2>POB: <span id="count">0</span></h2>
@@ -83,17 +118,81 @@
   </div>
 
   <script>
+    // Firebase config - sett inn dine egne verdier her
+    const firebaseConfig = {
+      apiKey: "DIN_API_KEY",
+      authDomain: "DITT_AUTH_DOMAIN",
+      databaseURL: "DIN_DATABASE_URL",
+      projectId: "DITT_PROJECT_ID",
+      storageBucket: "DITT_STORAGE_BUCKET",
+      messagingSenderId: "DIN_MESSAGING_SENDER_ID",
+      appId: "DITT_APP_ID"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+
     let personer = [];
     let sortFelt = 'id';
     let sortAsc = true;
 
+    const loginDiv = document.getElementById('loginDiv');
+    const appDiv = document.getElementById('appDiv');
+    const loginError = document.getElementById('loginError');
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        loginDiv.style.display = 'none';
+        appDiv.style.display = 'block';
+        lastData();
+      } else {
+        loginDiv.style.display = 'block';
+        appDiv.style.display = 'none';
+        personer = [];
+        oppdaterTabell();
+      }
+    });
+
+    function loggInn() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      loginError.textContent = "";
+      if (!email || !password) {
+        loginError.textContent = "Skriv inn e-post og passord.";
+        return;
+      }
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(error => {
+          loginError.textContent = error.message;
+        });
+    }
+
+    function loggUt() {
+      auth.signOut();
+    }
+
     function lagre() {
-      localStorage.setItem('personer', JSON.stringify(personer));
+      const user = auth.currentUser;
+      if (!user) return;
+      const uid = user.uid;
+      // Lagre hele listen under brukerens node
+      database.ref('users/' + uid + '/personer').set(personer);
     }
 
     function lastData() {
-      const data = localStorage.getItem('personer');
-      personer = data ? JSON.parse(data) : [];
+      const user = auth.currentUser;
+      if (!user) return;
+      const uid = user.uid;
+      database.ref('users/' + uid + '/personer').once('value').then(snapshot => {
+        const data = snapshot.val();
+        personer = data ? data : [];
+        sorterOgOppdater();
+      }).catch(() => {
+        personer = [];
+        sorterOgOppdater();
+      });
     }
 
     function oppdaterTabell() {
@@ -225,9 +324,6 @@
       reader.readAsText(file);
     }
 
-    // Initial load
-    lastData();
-    sorterOgOppdater();
   </script>
 </body>
 </html>
