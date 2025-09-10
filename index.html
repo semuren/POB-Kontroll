@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personoversikt Arbeidsplass</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    h1 { text-align: center; }
+    .form {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    input { padding: 5px; font-size: 1rem; }
+    button {
+      padding: 6px 14px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .add { background: #4CAF50; color: white; }
+    .reset { background: #555; color: white; }
+    .toggle { background: #2196F3; color: white; }
+    .delete { background: #f44336; color: white; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+    }
+    th { background: #eee; }
+  </style>
+</head>
+<body>
+  <h1>POB COSL Prospector</h1>
+  
+  <div class="form">
+    <input type="text" id="fornavn" placeholder="Fornavn">
+    <input type="text" id="etternavn" placeholder="Etternavn">
+    <input type="text" id="firma" placeholder="Firma">
+    <button class="add" onclick="leggTilPerson()">Legg til person</button>
+    <button class="reset" onclick="resetOversikt()">Nullstill</button>
+  </div>
+  
+  <h2>POB: <span id="count">0</span></h2>
+  
+  <table>
+    <thead>
+      <tr>
+        <th onclick="sorterEtter('id')">ID</th>
+        <th onclick="sorterEtter('fornavn')">First Name</th>
+        <th onclick="sorterEtter('etternavn')">Last Name</th>
+        <th onclick="sorterEtter('firma')">Company</th>
+        <th>Status</th>
+        <th>Time Onboard</th>
+        <th>Tid Ashore</th>
+        <th>Handling</th>
+      </tr>
+    </thead>
+    <tbody id="personListe"></tbody>
+  </table>
+  
+  <div style="margin-top:20px;">
+    <input type="file" id="csvFileInput" accept=".csv">
+    <button class="add" onclick="importerCSV()">Importer CSV</button>
+    <p>CSV-format: header må være <code>fornavn,etternavn,firma</code> etterfulgt av linjer med data.</p>
+  </div>
+  
+  <script>
+    let personer = [];
+
+    // Hent lagrede data fra localStorage
+    if (localStorage.getItem("personer")) {
+      personer = JSON.parse(localStorage.getItem("personer"));
+      oppdaterTabell();
+    }
+
+    function lagre() {
+      localStorage.setItem("personer", JSON.stringify(personer));
+    }
+
+    function oppdaterTabell() {
+      const tbody = document.getElementById("personListe");
+      tbody.innerHTML = "";
+      personer.forEach((p, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${p.id}</td>
+          <td>${p.fornavn}</td>
+          <td>${p.etternavn}</td>
+          <td>${p.firma}</td>
+          <td>${p.status}</td>
+          <td>${p.tidInn || ""}</td>
+          <td>${p.tidUt || ""}</td>
+          <td>
+            <button class="toggle" onclick="toggleStatus(${index})">Bytt status</button>
+            <button class="delete" onclick="slettPerson(${index})">Slett</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+      document.getElementById("count").textContent = personer.filter(p => p.status === "Onboard").length;
+      lagre();
+    }
+
+    function leggTilPerson() {
+      const fornavn = document.getElementById("fornavn").value.trim();
+      const etternavn = document.getElementById("etternavn").value.trim();
+      const firma = document.getElementById("firma").value.trim();
+      if (!fornavn || !etternavn || !firma) {
+        alert("Skriv inn fornavn, etternavn og firma.");
+        return;
+      }
+      const nyId = personer.length > 0 ? Math.max(...personer.map(p => p.id)) + 1 : 1;
+      personer.push({ id: nyId, fornavn, etternavn, firma, status: "Ashore", tidInn: null, tidUt: null });
+      oppdaterTabell();
+      document.getElementById("fornavn").value = "";
+      document.getElementById("etternavn").value = "";
+      document.getElementById("firma").value = "";
+    }
+
+    function toggleStatus(index) {
+      const person = personer[index];
+      if (person.status === "Ashore") {
+        person.status = "Onboard";
+        person.tidInn = new Date().toLocaleString();
+        person.tidUt = null;
+      } else {
+        person.status = "Ashore";
+        person.tidUt = new Date().toLocaleString();
+      }
+      oppdaterTabell();
+    }
+
+    function slettPerson(index) {
+      if (confirm("Er du sikker på at du vil slette denne personen?")) {
+        personer.splice(index, 1);
+        oppdaterTabell();
+      }
+    }
+
+    function resetOversikt() {
+      if (confirm("Er du sikker på at du vil nullstille hele oversikten?")) {
+        personer = [];
+        localStorage.removeItem("personer");
+        oppdaterTabell();
+      }
+    }
+
+    function sorterEtter(felt) {
+      personer.sort((a, b) => {
+        if (felt === "id") {
+          return a.id - b.id;
+        } else {
+          const valA = a[felt].toLowerCase();
+          const valB = b[felt].toLowerCase();
+          if (valA < valB) return -1;
+          if (valA > valB) return 1;
+          return 0;
+        }
+      });
+      oppdaterTabell();
+    }
+
+    function importerCSV() {
+      const fileInput = document.getElementById('csvFileInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Velg en CSV-fil først.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/);
+        // Forventet header: fornavn,etternavn,firma
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue; // ignorer tomme linjer
+          const parts = line.split(',');
+          if (parts.length < 3) continue; // ignorer linjer uten nok kolonner
+          const fornavn = parts[0].trim();
+          const etternavn = parts[1].trim();
+          const firma = parts[2].trim();
+          if (!fornavn || !etternavn || !firma) continue; // ignorer hvis noen felt mangler
+          const nyId = personer.length > 0 ? Math.max(...personer.map(p => p.id)) + 1 : 1;
+          personer.push({ id: nyId, fornavn, etternavn, firma, status: "Ashore", tidInn: null, tidUt: null });
+        }
+        oppdaterTabell();
+        fileInput.value = "";
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
